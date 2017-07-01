@@ -1,4 +1,5 @@
 var vmModule = require("./main-view-model");
+var builder = require("ui/builder");
 var mapsModule = require("nativescript-google-maps-sdk");
 var permissions = require("nativescript-permissions");
 var application = require("application");
@@ -121,8 +122,14 @@ function onMapReady(args) {
     marker.userData = {index: 2};
     mapView.addMarker(marker);
 
-  requestPermissions()
-    .then(function(granted) {
+    // Custom Info Window Marker
+    marker = new mapsModule.Marker();
+    marker.position = mapsModule.Position.positionFromLatLng(-33.22, 151.20);
+    marker.infoWindowTemplate = 'testWindow';
+    mapView.addMarker(marker);
+    marker.showInfoWindow();
+
+    requestPermissions().then(function(granted) {
         if(granted) {
             console.log("Enabling My Location..");
             mapView.myLocationEnabled = true;

@@ -36,6 +36,6 @@
   "devDependencies": {
     "tns-core-modules": "^3.0.0",
     "tns-platform-declarations": "^3.0.1",
-    "typescript": "^2.3.2"
+    "typescript": "~2.3.2"
   }
 }

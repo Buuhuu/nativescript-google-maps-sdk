@@ -10,6 +10,8 @@ import * as imageSource from 'tns-core-modules/image-source';
 import { Point } from "tns-core-modules/ui/core/view";
 import { Image } from "tns-core-modules/ui/image";
 
+export * from "./map-view-common";
+
 declare class GMSMapViewDelegate extends NSObject {};
 declare class GMSCameraPosition extends NSObject {
     target: any;
@@ -163,6 +165,35 @@ class MapViewDelegateImpl extends NSObject implements GMSMapViewDelegate {
             owner.notifyMarkerInfoWindowTapped(marker);
         }
     }
+
+    public mapViewMarkerInfoWindow(mapView: GMSMapView, gmsMarker: GMSMarker): UIView {
+        return null;
+    }
+
+    public mapViewMarkerInfoContents(mapView: GMSMapView, gmsMarker: GMSMarker): UIView {
+        let owner = this._owner.get();
+        if(!owner) return null;
+        let marker: Marker = owner.findMarker((marker: Marker) => marker.ios == gmsMarker);
+        var content = owner._getMarkerInfoWindowContent(marker);
+
+        if (content) {
+            let width = Number(content.width);
+            if ( Number.isNaN(width) ) width = null;
+            let height = Number(content.height);
+            if ( Number.isNaN(height) ) height = null;
+
+            if (!height || !width) {
+                const bounds: CGRect = require("utils/utils").ios.getter(UIScreen, UIScreen.mainScreen).bounds;
+                width = width || (bounds.size.width * .7);
+                height = height || (bounds.size.height * .4);
+            }
+
+            require("ui/utils").ios._layoutRootView(content, CGRectMake(0, 0, width, height))
+            return content.ios;
+        }
+
+        return null;
+    }
 }
 
 
@@ -252,6 +283,7 @@ export class MapView extends MapViewBase {
     }
 
     removeMarker(marker: Marker) {
+        this._unloadInfoWindowContent(marker);
         marker.ios.map = null;
         this._markers.splice(this._markers.indexOf(marker), 1);
     }
@@ -573,6 +605,10 @@ export class Marker extends MarkerBase {
 
     showInfoWindow(): void {
         this._ios.map.selectedMarker = this._ios;
+    }
+
+    isInfoWindowShown(): boolean {
+        return this._ios.map.selectedMarker == this._ios;
     }
 
     hideInfoWindow(): void {

@@ -3,11 +3,30 @@ import {
     Circle, Camera, MarkerEventData, ShapeEventData, VisibleRegion,
     CameraEventData, PositionEventData, Bounds, Style, UISettings
 } from "./map-view";
-import { Point, View } from "tns-core-modules/ui/core/view";
+import { Point, View, KeyedTemplate, Template } from "tns-core-modules/ui/core/view";
 import { Image } from "tns-core-modules/ui/image";
+import { LayoutBase } from "tns-core-modules/ui/layouts/layout-base";
+import builder = require("ui/builder");
+import frame = require("ui/frame");
 
 import { Property } from "tns-core-modules/ui/core/properties";
 import { Color } from "tns-core-modules/color";
+import {parseMultipleTemplates, parse} from "tns-core-modules/ui/builder";
+import {eachDescendant} from "tns-core-modules/ui/core/view-base";
+import {ProxyViewContainer} from "tns-core-modules/ui/proxy-view-container";
+import {StackLayout} from "tns-core-modules/ui/layouts/stack-layout";
+
+function onInfoWindowTemplatesChanged(mapView: MapViewBase) {
+    let _infoWindowTemplates = new Array<KeyedTemplate>();
+
+    if (mapView.infoWindowTemplates && typeof mapView.infoWindowTemplates === "string") {
+        _infoWindowTemplates = _infoWindowTemplates.concat(parseMultipleTemplates(mapView.infoWindowTemplates));
+    } else if(mapView.infoWindowTemplates) {
+        _infoWindowTemplates = _infoWindowTemplates.concat(<KeyedTemplate[]> mapView.infoWindowTemplates);
+    }
+
+    mapView._infoWindowTemplates = _infoWindowTemplates;
+}
 
 function onMapPropertyChanged(mapView: MapViewBase) {
     if (!mapView.processingCameraEvent) mapView.updateCamera();
@@ -35,6 +54,40 @@ function paddingValueConverter(value: any) {
     } else {
         return [0, 0, 0, 0];
     }
+}
+
+function onDescendantsLoaded(view: View, callback: () => void) {
+    if (!view) return callback();
+
+    let loadingCount = 1;
+    let loadedCount = 0;
+
+    const watchLoaded = (view, event) => {
+        const onLoaded = () => {
+            view.off(event, onLoaded);
+            loadedCount++;
+
+            if (view instanceof Image && view.isLoading) {
+                loadingCount++;
+                watchLoaded(view, 'isLoadingChange');
+
+                if (view.nativeView.onAttachedToWindow) {
+                    view.nativeView.onAttachedToWindow();
+                }
+            }
+
+            if (loadedCount === loadingCount) callback();
+        };
+        view.on(event, onLoaded);
+    };
+
+    eachDescendant(view, (descendant) => {
+        loadingCount++;
+        watchLoaded(descendant, View.loadedEvent);
+        return true;
+    });
+
+    watchLoaded(view, View.loadedEvent);
 }
 
 export { Style as StyleBase };
@@ -73,6 +126,14 @@ export function getColorHue(color: Color|string|number): number {
     return hue;
 }
 
+export module knownTemplates {
+    export const infoWindowTemplate = "infoWindowTemplate";
+}
+
+export module knownMultiTemplates {
+    export const infoWindowTemplates = "infoWindowTemplates";
+}
+
 export abstract class MapViewBase extends View implements MapView {
 
     protected _gMap: any;
@@ -87,6 +148,19 @@ export abstract class MapViewBase extends View implements MapView {
     public padding: number[];
 
     public projection: Projection;
+    public infoWindowTemplate: string | Template;
+    public infoWindowTemplates: string | Array<KeyedTemplate>;
+    public _defaultInfoWindowTemplate: KeyedTemplate = {
+        key: "",
+        createView: () => {
+            if (this.infoWindowTemplate) {
+                return parse(this.infoWindowTemplate, this);
+            }
+            return undefined;
+        }
+    }
+    public _infoWindowTemplates = new Array<KeyedTemplate>();
+
     public settings: UISettingsBase;
     public myLocationEnabled: boolean;
 
@@ -107,6 +181,60 @@ export abstract class MapViewBase extends View implements MapView {
 
     public get processingCameraEvent(): boolean {
         return this._processingCameraEvent;
+    }
+
+    public _getMarkerInfoWindowContent(marker: MarkerBase) {
+        var view;
+
+        if(marker && marker._infoWindowView) {
+            view = marker._infoWindowView;
+            return view;
+        }
+
+        const template: KeyedTemplate = this._getInfoWindowTemplate(marker);
+
+        if (template) view = template.createView();
+
+        if (!view) return null;
+
+        if (!(view instanceof LayoutBase) ||
+            view instanceof ProxyViewContainer) {
+            let sp = new StackLayout();
+            sp.addChild(view);
+            view = sp;
+        }
+
+        marker._infoWindowView = view;
+
+        view.bindingContext = marker;
+
+        onDescendantsLoaded(view, () => {
+            marker.hideInfoWindow();
+            marker.showInfoWindow();
+        });
+
+        this._addView(view);
+
+        view.onLoaded();
+
+        return view;
+    }
+
+    protected _unloadInfoWindowContent(marker: MarkerBase) {
+        if (marker._infoWindowView) {
+            marker._infoWindowView.onUnloaded();
+            marker._infoWindowView = null;
+        }
+    }
+
+    public _getInfoWindowTemplate(marker: MarkerBase): KeyedTemplate {
+        const templateKey = marker.infoWindowTemplate;
+        for (let i = 0, length = this._infoWindowTemplates.length; i < length; i++) {
+            if (this._infoWindowTemplates[i].key === templateKey) {
+                return this._infoWindowTemplates[i];
+            }
+        }
+        return this._defaultInfoWindowTemplate;
     }
 
     public abstract findMarker(callback: (marker: Marker)=>boolean): Marker;
@@ -208,6 +336,12 @@ export abstract class MapViewBase extends View implements MapView {
     }
 }
 
+export const infoWindowTemplateProperty = new Property<MapViewBase, string | Template>({name: "infoWindowTemplate"});
+infoWindowTemplateProperty.register(MapViewBase);
+
+export const infoWindowTemplatesProperty = new Property<MapViewBase, string | Array<KeyedTemplate>>({name: "infoWindowTemplates", valueChanged: onInfoWindowTemplatesChanged })
+infoWindowTemplatesProperty.register(MapViewBase);
+
 export const latitudeProperty = new Property<MapViewBase, number>({ name: 'latitude', defaultValue: 0, valueChanged: onMapPropertyChanged });
 latitudeProperty.register(MapViewBase);
 
@@ -269,6 +403,7 @@ export class BoundsBase implements Bounds {
 }
 
 export abstract class MarkerBase implements Marker {
+    public _infoWindowView: any;
     public position: Position;
     public rotation: number;
     public anchor: Array<number>;
@@ -282,6 +417,8 @@ export abstract class MarkerBase implements Marker {
     public visible: boolean;
     public zIndex: number;
     public abstract showInfoWindow(): void;
+    public abstract isInfoWindowShown(): boolean;
+    public infoWindowTemplate: string;
     public abstract hideInfoWindow(): void;
     public userData: any;
     public _map: any;
