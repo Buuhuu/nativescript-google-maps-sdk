@@ -7,8 +7,8 @@ import {
 } from "./map-view-common";
 import { Color } from "tns-core-modules/color";
 import * as imageSource from 'tns-core-modules/image-source';
-import { Point } from "tns-core-modules/ui/core/view";
-import { Image } from "tns-core-modules/ui/image";
+import { Point, View } from "tns-core-modules/ui/core/view";
+import { layout } from 'tns-core-modules/utils/utils';
 
 export * from "./map-view-common";
 
@@ -174,7 +174,7 @@ class MapViewDelegateImpl extends NSObject implements GMSMapViewDelegate {
         let owner = this._owner.get();
         if(!owner) return null;
         let marker: Marker = owner.findMarker((marker: Marker) => marker.ios == gmsMarker);
-        var content = owner._getMarkerInfoWindowContent(marker);
+        var content: View = owner._getMarkerInfoWindowContent(marker);
 
         if (content) {
             let width = Number(content.width);
@@ -182,10 +182,13 @@ class MapViewDelegateImpl extends NSObject implements GMSMapViewDelegate {
             let height = Number(content.height);
             if ( Number.isNaN(height) ) height = null;
 
+
+
             if (!height || !width) {
-                const bounds: CGRect = require("utils/utils").ios.getter(UIScreen, UIScreen.mainScreen).bounds;
-                width = width || (bounds.size.width * .7);
-                height = height || (bounds.size.height * .4);
+                const unspecedMeasureSpec: number = layout.makeMeasureSpec(0, layout.UNSPECIFIED);
+                content.measure(unspecedMeasureSpec, unspecedMeasureSpec);
+                height = layout.toDeviceIndependentPixels(content.getMeasuredHeight());
+                width = layout.toDeviceIndependentPixels(content.getMeasuredWidth());
             }
 
             require("ui/utils").ios._layoutRootView(content, CGRectMake(0, 0, width, height))
