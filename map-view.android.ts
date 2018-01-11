@@ -78,6 +78,7 @@ export class MapView extends MapViewBase {
             onMapReady: (gMap) => {
                 var owner = that.get();
                 owner._gMap = gMap;
+                owner.setMinZoomMaxZoom();
                 owner.updatePadding();
                 if (owner._pendingCameraUpdate) {
                     owner.updateCamera();
@@ -335,6 +336,13 @@ export class MapView extends MapViewBase {
 
     set myLocationEnabled(value: boolean) {
         if (this._gMap) this._gMap.setMyLocationEnabled(value);
+    }
+
+    setMinZoomMaxZoom() {
+        if (this.gMap) {
+            this.gMap.setMinZoomPreference(this.minZoom);
+            this.gMap.setMaxZoomPreference(this.maxZoom);
+        }
     }
 
     addMarker(marker: Marker) {

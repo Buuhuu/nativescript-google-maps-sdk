@@ -287,6 +287,10 @@ export class MapView extends MapViewBase {
         if (this.nativeView) this.nativeView.myLocationEnabled = value;
     }
 
+    setMinZoomMaxZoom() {
+        this.gMap.setMinZoomMaxZoom(this.minZoom, this.maxZoom);
+    }
+
     addMarker(marker: Marker) {
         marker.ios.map = this.gMap;
         this._markers.push(marker);
