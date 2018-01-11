@@ -17,6 +17,8 @@ export class MapView extends View {
     public latitude: number;
     public longitude: number;
     public zoom: number;
+    public minZoom: number;
+    public maxZoom: number;
     public bearing: number;
     public tilt: number;
     public padding: number[];
@@ -50,6 +52,8 @@ export class MapView extends View {
     public projection: Projection;
 
     public myLocationEnabled: boolean;
+
+    public setMinZoomMaxZoom(): void;
 
     public addMarker(marker: Marker): void;
 
