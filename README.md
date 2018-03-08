@@ -87,7 +87,7 @@ Modify your view by adding the namespace `xmlns:maps="nativescript-google-maps-s
 	xmlns:maps="nativescript-google-maps-sdk"
 	>
   <GridLayout>
-    <maps:mapView latitude="{{ latitude }}" longitude="{{ longitude }}" 
+    <maps:mapView latitude="{{ latitude }}" longitude="{{ longitude }}" mapAnimationsEnabled="{{ mapAnimationsEnabled }}"
     								zoom="{{ zoom }}" bearing="{{ bearing }}" 
     								tilt="{{ tilt }}" padding="{{ padding }}" mapReady="onMapReady"  
    								markerSelect="onMarkerSelect" markerBeginDragging="onMarkerBeginDragging"
@@ -104,11 +104,12 @@ The following properties are available to you for adjusting camera view.
 Property       | Description
 -------------- |:---------------------------------
 `latitude` | number
-`latitude` | number
+`longitude` | number
 `zoom` | number
 `bearing` | number
 `tilt` | number
 `padding` | array of numbers reflectig top, bottom, left and right paddings
+`mapAnimationsEnabled` | boolean of whether to animate camera changes
 
 ## Events
 
@@ -183,7 +184,55 @@ Property       | Description
 ## Styling
 Use `gMap.setStyle(style);` to change the map styling.
 
+For Angular map styling, use `this.mapView.setStyle(<Style>JSON.parse(this.styles));` inside of the `onMapReady` function.  In this example `this.mapView` is the imported `MapView` from the plugin and `this.styles` is a reference to a json file that was created using the link below.  The `<Style>` was also imported from the plugin as `{ Style }`.
+
 For map styles, see [Google Maps Style Reference](https://developers.google.com/maps/documentation/android-api/style-reference) and the [Styling Wizard](https://mapstyle.withgoogle.com/).
+
+## Custom Info Windows (Beta)
+
+To customize the marker info windows, define a template in your view like so:
+
+```
+ <!-- /app/main-page.xml -->
+ <Page 
+	xmlns="http://www.nativescript.org/tns.xsd"
+	xmlns:maps="nativescript-google-maps-sdk"
+	>
+  <GridLayout>
+       <maps:mapView mapReady="onMapReady">
+            <!-- Default Info Window Template -->       		
+            <maps:mapView.infoWindowTemplate>
+                <StackLayout orientation="vertical" width="200" height="150" >
+                    <Label text="{{title}}" className="title" width="125"   />
+                    <Label text="{{snippet}}" className="snippet" width="125"   />
+                    <Label text="{{'LAT: ' + position.latitude}}" className="infoWindowCoordinates"  />
+                    <Label text="{{'LON: ' + position.longitude}}" className="infoWindowCoordinates"  />
+                </StackLayout>
+            </maps:mapView.infoWindowTemplate>
+            <!-- Keyed Info Window Templates -->   
+            <maps:mapView.infoWindowTemplates>
+                <template key="testWindow">
+                    <StackLayout orientation="vertical" width="160" height="160" >
+                        <Image src="res://icon" stretch="fill"  height="100" width="100" className="infoWindowImage" />
+                        <Label text="Let's Begin!" className="title" />
+                    </StackLayout>
+                </template>
+            </maps:mapView.infoWindowTemplates>
+        </maps:mapView>
+  </GridLayout>
+</Page>
+```
+
+If a marker has the `infoWindowTemplate` property set like so:
+
+```
+var marker = new mapsModule.Marker();
+marker.infoWindowTemplate = 'testWindow';
+```
+
+This will use the template with that key.  If it's not set then it'll use the default custom template if set, overwise the standard info window.
+
+** *Known Issue* - External Images fail to show in iOS info windows (local Images work fine)
 
 ## Using with Angular
 

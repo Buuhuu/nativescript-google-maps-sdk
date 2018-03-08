@@ -135,9 +135,10 @@ function onMapReady(args) {
             mapView.myLocationEnabled = true;
             mapView.settings.myLocationButtonEnabled = true;
         }
-        return wait(3000);
+        return wait(6000);
     }).then(function () {
-        var marker = mapView.findMarker(function (marker) {
+        marker.hideInfoWindow();
+        marker = mapView.findMarker(function (marker) {
             return marker.userData.index === 2;
         });
         console.log("Moving marker...", marker.userData);
@@ -147,8 +148,9 @@ function onMapReady(args) {
         polyline.removePoint(point);
         return wait(3000);
     }).then(function () {
+        vmModule.mainViewModel.set("mapAnimationsEnabled", false);
         vmModule.mainViewModel.set("zoom", 9);
-        console.log("Zooming in...", vmModule.mainViewModel);
+        console.log("Zooming in (no animation)...", vmModule.mainViewModel);
         return wait(3000);
     }).then(function () {
         polyline.addPoint(mapsModule.Position.positionFromLatLng(-33.33, 151.08));

@@ -3,7 +3,7 @@ import {
     Circle, Camera, MarkerEventData, ShapeEventData, VisibleRegion,
     CameraEventData, PositionEventData, Bounds, Style, UISettings
 } from "./map-view";
-import { Point, View, KeyedTemplate, Template } from "tns-core-modules/ui/core/view";
+import { Point, View, Template, KeyedTemplate } from "tns-core-modules/ui/core/view";
 import { Image } from "tns-core-modules/ui/image";
 import { ImageSource } from "image-source";
 import { LayoutBase } from "tns-core-modules/ui/layouts/layout-base";
@@ -12,18 +12,18 @@ import frame = require("ui/frame");
 
 import { Property } from "tns-core-modules/ui/core/properties";
 import { Color } from "tns-core-modules/color";
-import {parseMultipleTemplates, parse} from "tns-core-modules/ui/builder";
-import {eachDescendant} from "tns-core-modules/ui/core/view-base";
-import {ProxyViewContainer} from "tns-core-modules/ui/proxy-view-container";
-import {StackLayout} from "tns-core-modules/ui/layouts/stack-layout";
+import { parseMultipleTemplates, parse } from "tns-core-modules/ui/builder";
+import { eachDescendant } from "tns-core-modules/ui/core/view-base";
+import { ProxyViewContainer } from "tns-core-modules/ui/proxy-view-container";
+import { StackLayout } from "tns-core-modules/ui/layouts/stack-layout";
 
 function onInfoWindowTemplatesChanged(mapView: MapViewBase) {
     let _infoWindowTemplates = new Array<KeyedTemplate>();
 
     if (mapView.infoWindowTemplates && typeof mapView.infoWindowTemplates === "string") {
         _infoWindowTemplates = _infoWindowTemplates.concat(parseMultipleTemplates(mapView.infoWindowTemplates));
-    } else if(mapView.infoWindowTemplates) {
-        _infoWindowTemplates = _infoWindowTemplates.concat(<KeyedTemplate[]> mapView.infoWindowTemplates);
+    } else if (mapView.infoWindowTemplates) {
+        _infoWindowTemplates = _infoWindowTemplates.concat(<KeyedTemplate[]>mapView.infoWindowTemplates);
     }
 
     mapView._infoWindowTemplates = _infoWindowTemplates;
@@ -97,9 +97,17 @@ function onDescendantsLoaded(view: View, callback: () => void) {
 
 export { Style as StyleBase };
 
-export function getColorHue(color: Color|string|number): number {
+export module knownTemplates {
+    export const infoWindowTemplate = "infoWindowTemplate";
+}
+
+export module knownMultiTemplates {
+    export const infoWindowTemplates = "infoWindowTemplates";
+}
+
+export function getColorHue(color: Color | string | number): number {
     if (typeof color === 'number') {
-        while ( color < 0) { color += 360; }
+        while (color < 0) { color += 360; }
         return color % 360;
     }
     if (typeof color === 'string') color = new Color(color);
@@ -131,14 +139,6 @@ export function getColorHue(color: Color|string|number): number {
     return hue;
 }
 
-export module knownTemplates {
-    export const infoWindowTemplate = "infoWindowTemplate";
-}
-
-export module knownMultiTemplates {
-    export const infoWindowTemplates = "infoWindowTemplates";
-}
-
 export abstract class MapViewBase extends View implements MapView {
 
     protected _gMap: any;
@@ -153,8 +153,8 @@ export abstract class MapViewBase extends View implements MapView {
     public maxZoom: number;
     public tilt: number;
     public padding: number[];
+    public mapAnimationsEnabled: boolean;
 
-    public projection: Projection;
     public infoWindowTemplate: string | Template;
     public infoWindowTemplates: string | Array<KeyedTemplate>;
     public _defaultInfoWindowTemplate: KeyedTemplate = {
@@ -168,12 +168,13 @@ export abstract class MapViewBase extends View implements MapView {
     }
     public _infoWindowTemplates = new Array<KeyedTemplate>();
 
+    public projection: Projection;
     public settings: UISettingsBase;
     public myLocationEnabled: boolean;
 
     public static mapReadyEvent: string = "mapReady";
     public static markerSelectEvent: string = "markerSelect";
-    public static markerInfoWindowTappedEvent:string = "markerInfoWindowTapped";
+    public static markerInfoWindowTappedEvent: string = "markerInfoWindowTapped";
     public static shapeSelectEvent: string = "shapeSelect";
     public static markerBeginDraggingEvent: string = "markerBeginDragging";
     public static markerEndDraggingEvent: string = "markerEndDragging";
@@ -194,7 +195,7 @@ export abstract class MapViewBase extends View implements MapView {
     public _getMarkerInfoWindowContent(marker: MarkerBase) {
         var view;
 
-        if(marker && marker._infoWindowView) {
+        if (marker && marker._infoWindowView) {
             view = marker._infoWindowView;
             return view;
         }
@@ -245,7 +246,7 @@ export abstract class MapViewBase extends View implements MapView {
         return this._defaultInfoWindowTemplate;
     }
 
-    public abstract findMarker(callback: (marker: Marker)=>boolean): Marker;
+    public abstract findMarker(callback: (marker: Marker) => boolean): Marker;
 
     public abstract addPolyline(shape: Polyline): void;
 
@@ -267,9 +268,9 @@ export abstract class MapViewBase extends View implements MapView {
 
     public abstract setMinZoomMaxZoom(): void;
 
-    public abstract addMarker(marker: Marker): void;
+    public abstract addMarker(...markers: Marker[]): void;
 
-    public abstract removeMarker(marker: Marker): void;
+    public abstract removeMarker(...markers: Marker[]): void;
 
     public abstract removeAllMarkers(): void;
 
@@ -350,10 +351,10 @@ export abstract class MapViewBase extends View implements MapView {
     }
 }
 
-export const infoWindowTemplateProperty = new Property<MapViewBase, string | Template>({name: "infoWindowTemplate"});
+export const infoWindowTemplateProperty = new Property<MapViewBase, string | Template>({ name: "infoWindowTemplate" });
 infoWindowTemplateProperty.register(MapViewBase);
 
-export const infoWindowTemplatesProperty = new Property<MapViewBase, string | Array<KeyedTemplate>>({name: "infoWindowTemplates", valueChanged: onInfoWindowTemplatesChanged })
+export const infoWindowTemplatesProperty = new Property<MapViewBase, string | Array<KeyedTemplate>>({ name: "infoWindowTemplates", valueChanged: onInfoWindowTemplatesChanged })
 infoWindowTemplatesProperty.register(MapViewBase);
 
 export const latitudeProperty = new Property<MapViewBase, number>({ name: 'latitude', defaultValue: 0, valueChanged: onMapPropertyChanged });
@@ -380,6 +381,9 @@ tiltProperty.register(MapViewBase);
 export const paddingProperty = new Property<MapViewBase, number[]>({ name: 'padding', valueChanged: onPaddingPropertyChanged, valueConverter: paddingValueConverter });
 paddingProperty.register(MapViewBase);
 
+export const mapAnimationsEnabledProperty = new Property<MapViewBase, boolean>({ name: 'mapAnimationsEnabled', defaultValue: true });
+mapAnimationsEnabledProperty.register(MapViewBase);
+
 export class UISettingsBase implements UISettings {
     compassEnabled: boolean;
     indoorLevelPickerEnabled: boolean;
@@ -393,7 +397,7 @@ export class UISettingsBase implements UISettings {
 }
 
 export abstract class ProjectionBase implements Projection {
-    public visibleRegion : VisibleRegion;
+    public visibleRegion: VisibleRegion;
     public abstract fromScreenLocation(point: Point): Position;
     public abstract toScreenLocation(position: Position): Point;
     public ios: any; /* GMSProjection */
@@ -429,8 +433,8 @@ export abstract class MarkerBase implements Marker {
     public anchor: Array<number>;
     public title: string;
     public snippet: string;
-    public color: Color|string|number;
-    public icon: ImageSource|string;
+    public color: Color | string | number;
+    public icon: ImageSource | string;
     public alpha: number;
     public flat: boolean;
     public draggable: boolean;

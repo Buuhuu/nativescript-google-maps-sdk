@@ -9,10 +9,11 @@ import { Color } from "tns-core-modules/color";
 import * as imageSource from 'tns-core-modules/image-source';
 import { Point, View } from "tns-core-modules/ui/core/view";
 import { layout } from 'tns-core-modules/utils/utils';
+import { GC } from "utils/utils";
 
 export * from "./map-view-common";
 
-declare class GMSMapViewDelegate extends NSObject {};
+declare class GMSMapViewDelegate extends NSObject { };
 declare class GMSCameraPosition extends NSObject {
     target: any;
     bearing: any;
@@ -26,7 +27,7 @@ declare class GMSMapView extends NSObject {
 declare class GMSMarker extends NSObject {
     public static markerImageWithColor(color: UIColor): any;
 };
-declare class GMSOverlay extends NSObject {};
+declare class GMSOverlay extends NSObject { };
 declare class GMSMapStyle extends NSObject {
     public static styleWithJSONStringError(input: string): GMSMapStyle;
 };
@@ -38,9 +39,9 @@ declare class GMSCoordinateBounds extends NSObject {
     public southWest: CLLocationCoordinate2D;
     public valid: boolean;
 };
-declare class GMSPolyline extends NSObject {};
-declare class GMSPolygon extends NSObject {};
-declare class GMSCircle extends NSObject {};
+declare class GMSPolyline extends NSObject { };
+declare class GMSPolygon extends NSObject { };
+declare class GMSCircle extends NSObject { };
 declare class GMSMutablePath extends NSObject {
     public static new(): GMSMutablePath
     public addCoordinate(...params: any[]): void
@@ -166,21 +167,28 @@ class MapViewDelegateImpl extends NSObject implements GMSMapViewDelegate {
         }
     }
 
+    public didTapMyLocationButtonForMapView(mapView: GMSMapView): void {
+        var owner = this._owner.get();
+        if (owner) {
+            owner.notifyMyLocationTapped();
+        }
+    }
+
     public mapViewMarkerInfoWindow(mapView: GMSMapView, gmsMarker: GMSMarker): UIView {
         return null;
     }
 
     public mapViewMarkerInfoContents(mapView: GMSMapView, gmsMarker: GMSMarker): UIView {
         let owner = this._owner.get();
-        if(!owner) return null;
+        if (!owner) return null;
         let marker: Marker = owner.findMarker((marker: Marker) => marker.ios == gmsMarker);
         var content: View = owner._getMarkerInfoWindowContent(marker);
 
         if (content) {
             let width = Number(content.width);
-            if ( Number.isNaN(width) ) width = null;
+            if (Number.isNaN(width)) width = null;
             let height = Number(content.height);
-            if ( Number.isNaN(height) ) height = null;
+            if (Number.isNaN(height)) height = null;
 
 
 
@@ -196,13 +204,6 @@ class MapViewDelegateImpl extends NSObject implements GMSMapViewDelegate {
         }
 
         return null;
-    }
-    
-    public didTapMyLocationButtonForMapView(mapView: GMSMapView): void {
-        var owner = this._owner.get();
-        if (owner) {
-            owner.notifyMyLocationTapped();
-        }
     }
 }
 
@@ -232,6 +233,13 @@ export class MapView extends MapViewBase {
         super.onUnloaded();
     }
 
+    public disposeNativeView() {
+        this._markers = null;
+        this._delegate = null;
+        super.disposeNativeView();
+        GC();
+    };
+
     private _createCameraPosition() {
         return GMSCameraPosition.cameraWithLatitudeLongitudeZoomBearingViewingAngle(
             this.latitude,
@@ -243,13 +251,22 @@ export class MapView extends MapViewBase {
     }
 
     updateCamera() {
-        this.nativeView.animateToCameraPosition(this._createCameraPosition());
+        if (this.mapAnimationsEnabled) {
+            this.nativeView.animateToCameraPosition(this._createCameraPosition());
+        } else {
+            this.nativeView.camera = this._createCameraPosition();
+        }
     }
 
     setViewport(bounds: Bounds, padding?: number) {
         var p = UIEdgeInsetsMake(padding, padding, padding, padding) || this.gMap.padding;
         let cameraPosition = this.nativeView.cameraForBoundsInsets(bounds.ios, p);
-        this.nativeView.animateToCameraPosition(cameraPosition);
+
+        if (this.mapAnimationsEnabled) {
+            this.nativeView.animateToCameraPosition(cameraPosition);
+        } else {
+            this.nativeView.camera = cameraPosition;
+        }
     }
 
     updatePadding() {
@@ -291,15 +308,19 @@ export class MapView extends MapViewBase {
         this.gMap.setMinZoomMaxZoom(this.minZoom, this.maxZoom);
     }
 
-    addMarker(marker: Marker) {
-        marker.ios.map = this.gMap;
-        this._markers.push(marker);
+    addMarker(...markers: Marker[]) {
+        markers.forEach(marker => {
+            marker.ios.map = this.gMap;
+            this._markers.push(marker);
+        });
     }
 
-    removeMarker(marker: Marker) {
-        this._unloadInfoWindowContent(marker);
-        marker.ios.map = null;
-        this._markers.splice(this._markers.indexOf(marker), 1);
+    removeMarker(...markers: Marker[]) {
+        markers.forEach(marker => {
+            this._unloadInfoWindowContent(marker);
+            marker.ios.map = null;
+            this._markers.splice(this._markers.indexOf(marker), 1);
+        });
     }
 
     removeAllMarkers() {
@@ -355,7 +376,7 @@ export class MapView extends MapViewBase {
         try {
             this.nativeView.mapStyle = GMSMapStyle.styleWithJSONStringError(JSON.stringify(style));
             return true;
-        } catch(err) {
+        } catch (err) {
             return false;
         }
     }
@@ -526,7 +547,7 @@ export class Bounds extends BoundsBase {
         this._ios = ios;
     }
 
-    public static fromCoordinates(southwest:Position, northeast:Position): Bounds {
+    public static fromCoordinates(southwest: Position, northeast: Position): Bounds {
         return new Bounds(GMSCoordinateBounds.alloc().initWithCoordinateCoordinate(southwest.ios, northeast.ios));
     }
 }
@@ -553,7 +574,7 @@ export class Position extends PositionBase {
         this._ios = CLLocationCoordinate2DMake(this.latitude, longitude);
     }
 
-    constructor(ios?:CLLocationCoordinate2D) {
+    constructor(ios?: CLLocationCoordinate2D) {
         super();
         this._ios = ios || CLLocationCoordinate2DMake(0, 0);
     }
@@ -634,7 +655,7 @@ export class Marker extends MarkerBase {
         return this._color;
     }
 
-    set color(value: Color|string|number) {
+    set color(value: Color | string | number) {
         value = getColorHue(value);
 
         this._color = value;
@@ -649,7 +670,7 @@ export class Marker extends MarkerBase {
         return this._icon;
     }
 
-    set icon(value: imageSource.ImageSource|string) {
+    set icon(value: imageSource.ImageSource | string) {
         if (typeof value === 'string') {
             value = imageSource.fromResource(String(value));
         }
@@ -663,7 +684,7 @@ export class Marker extends MarkerBase {
 
     set alpha(value: number) {
         this._alpha = value;
-        if(this._visible) this._ios.opacity = value;
+        if (this._visible) this._ios.opacity = value;
     }
 
     get visible() {
@@ -732,7 +753,7 @@ export class Polyline extends PolylineBase {
 
     loadPoints(): void {
         var points = GMSMutablePath.new();
-        this._points.forEach(function(point) {
+        this._points.forEach(function (point) {
             points.addCoordinate(point.ios);
         }.bind(this));
         this._ios.path = points;
@@ -803,7 +824,7 @@ export class Polygon extends PolygonBase {
 
     loadPoints(): void {
         var points = GMSMutablePath.new();
-        this._points.forEach(function(point) {
+        this._points.forEach(function (point) {
             points.addCoordinate(point.ios);
         }.bind(this));
         this._ios.path = points;
