@@ -52,6 +52,9 @@ export class MapView extends MapViewBase {
         this._markers = undefined;
         this._shapes = undefined;
         super.disposeNativeView();
+        if (gc) { 
+            gc(); 
+        }
     };
 
     private onActivityPaused(args) {
@@ -74,7 +77,7 @@ export class MapView extends MapViewBase {
         this.nativeView.onDestroy();
     }
 
-    private onLowMemory(args) {
+    private onLowMemory() {
         if (!this.nativeView || !this._context) return;
         this.nativeView.onLowMemory();
     }
