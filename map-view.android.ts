@@ -29,6 +29,7 @@ export class MapView extends MapViewBase {
     onLoaded() {
         super.onLoaded();
 
+        application.on(application.lowMemoryEvent, this.onLowMemory, this);
         application.android.on(application.AndroidApplication.activityPausedEvent, this.onActivityPaused, this);
         application.android.on(application.AndroidApplication.activityResumedEvent, this.onActivityResumed, this);
         application.android.on(application.AndroidApplication.saveActivityStateEvent, this.onActivitySaveInstanceState, this);
@@ -38,6 +39,7 @@ export class MapView extends MapViewBase {
     onUnloaded() {
         super.onUnloaded();
 
+        application.off(application.lowMemoryEvent, this.onLowMemory, this);
         application.android.off(application.AndroidApplication.activityPausedEvent, this.onActivityPaused, this);
         application.android.off(application.AndroidApplication.activityResumedEvent, this.onActivityResumed, this);
         application.android.off(application.AndroidApplication.saveActivityStateEvent, this.onActivitySaveInstanceState, this);
@@ -70,6 +72,11 @@ export class MapView extends MapViewBase {
     private onActivityDestroyed(args) {
         if (!this.nativeView || this._context != args.activity) return;
         this.nativeView.onDestroy();
+    }
+
+    private onLowMemory(args) {
+        if (!this.nativeView || !this._context) return;
+        this.nativeView.onLowMemory();
     }
 
     public createNativeView() {
